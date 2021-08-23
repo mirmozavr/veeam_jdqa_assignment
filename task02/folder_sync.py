@@ -10,16 +10,18 @@
 задаваться параметрами командной строки при запуске программы.
 """
 import logging
+import sys
 import time
 
 import click
 from dirsync import sync
-import sys
 
 # set custom logger
-msg_format = '%(asctime)s - %(message)s'
-date_format = '%Y/%m/%d %H:%M:%S'
-logging.basicConfig(filename="dirsync.log", level=logging.INFO, format=msg_format, datefmt=date_format)
+msg_format = "%(asctime)s - %(message)s"
+date_format = "%Y/%m/%d %H:%M:%S"
+logging.basicConfig(
+    filename="dirsync.log", level=logging.INFO, format=msg_format, datefmt=date_format
+)
 log = logging.getLogger()
 hdl = logging.StreamHandler(sys.stdout)
 log.addHandler(hdl)
@@ -31,7 +33,7 @@ log.addHandler(hdl)
 @click.option(
     "--interval",
     "-i",
-    type=click.IntRange(min=0),
+    type=click.IntRange(min=0, clamp=True),
     default=0,
     help="Folder sync time interval (sec). If omitted sync will run once",
 )
@@ -39,7 +41,12 @@ def main(source: str, target: str, interval: int):
     """Directory tree synchronisation tool."""
 
     while True:
-        sync(source, target, action="sync", verbose=True, purge=True, logger=log)
+        try:
+            sync(source, target, action="sync", verbose=True, purge=True, logger=log)
+        except ValueError as err:
+            print(err, "\nSync: Quit")
+            quit()
+
         if not interval:
             print("Sync: Finished")
             break
