@@ -15,25 +15,34 @@
 """
 
 import socket
-import time
 
-from utility import gen_id
+from utility import gen_id, gen_message
 
-HOST = '127.0.0.1'
-port8000 = 8000
-port8001 = 8001
 
-while True:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        unique_id = gen_id(size=5)
-        client_key = b""
-        print(f"GENERATED ID {unique_id}")
-        s.connect((HOST, port8000))
-        s.sendall(unique_id.encode(encoding="ascii"))
-        while True:
-            data = s.recv(1024)
-            if not data:
-                break
-            client_key += data
+def main():
+    HOST = "127.0.0.1"
+    port8000 = 8000
+    port8001 = 8001
+    while True:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            unique_id = gen_id(size=4)
+
+            print(f"GENERATED ID {unique_id}")
+            s.connect((HOST, port8000))
+            s.sendall(unique_id.encode(encoding="ascii"))
+
+            client_key = s.recv(1024).decode(encoding="ascii")
+
             print(f"Client: Got KEY: {client_key}")
 
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s2:
+                s2.connect((HOST, port8001))
+                print("connected to 8001 success!")
+                s2.sendall(
+                    f"{unique_id} {client_key} {gen_message()}".encode(encoding="ascii")
+                )
+                print("MESSAGE SENT")
+
+
+if __name__ == "__main__":
+    main()

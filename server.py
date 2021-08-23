@@ -13,13 +13,14 @@
 Для реализации взаимодействия между сервером и клиентом системы допускается (но не требуется)
 использование высокоуровнего протокола (например, HTTP).
 """
+import datetime as dt
 import socket
-import time
 
 from utility import gen_key
 
 
 def main():
+    db_clients = {}
     HOST = "127.0.0.1"
     port8000 = 8000
     port8001 = 8001
@@ -30,16 +31,39 @@ def main():
             socket_8000.listen(50)
             conn, addr = socket_8000.accept()
             with conn:
-                print("Receiver: Connected by", addr, conn)
+
                 data = conn.recv(1024)
                 print(f"Receiver: Got ID: {data}")
                 unique_key = gen_key(size=10)
                 print(f"GENERATED KEY: {unique_key}")
                 conn.send(unique_key.encode(encoding="ascii"))
 
-                print("NOW 8001 PART FOR SERVER")
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as socket_8001:
+                    socket_8001.bind((HOST, port8001))
 
+                    socket_8001.listen()
 
+                    conn, addr = socket_8001.accept()  # is it okay to use 'conn' again?
+                    with conn:
+                        msg = b""
+                        while True:
+                            data = conn.recv(1024)
+                            if not data:
+                                break
+                            msg += data
+
+                        msg = msg.decode(encoding="ascii")
+                        client_id, client_key, client_msg = msg.split(maxsplit=2)
+                        with open("serverlog.log", "a") as file:
+                            head = f"{dt.datetime.now().strftime('%Y/%m/%d %H:%M:%S')} id: {client_id}\n"
+                            body = f"{client_msg}\n\n"
+                            if (
+                                client_id in db_clients
+                                and db_clients[client_id] == client_key
+                            ):
+                                file.write(head + body)
+                            else:
+                                file.write(head + "ACCESS DENIED!\n\n")
 
 
 if __name__ == "__main__":
