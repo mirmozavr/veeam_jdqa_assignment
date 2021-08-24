@@ -18,52 +18,68 @@ import socket
 
 from utility import gen_key
 
+db_clients = {}
+HOST = "127.0.0.1"
+port8000 = 8000
+port8001 = 8001
+
 
 def main():
-    db_clients = {}
-    HOST = "127.0.0.1"
-    port8000 = 8000
-    port8001 = 8001
+    key_distribution_socket(HOST, port8000)
 
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as socket_8000:
-        socket_8000.bind((HOST, port8000))
+
+def key_distribution_socket(host: str, port: int):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind((host, port))
         while True:
-            socket_8000.listen(50)
-            conn, addr = socket_8000.accept()
+            s.listen(50)
+            conn, addr = s.accept()
             with conn:
-
                 data = conn.recv(1024)
-                print(f"Receiver: Got ID: {data}")
+                print(f"Receiver: Client connected - ID: {data}")
                 unique_key = gen_key(size=10)
                 print(f"GENERATED KEY: {unique_key}")
                 conn.send(unique_key.encode(encoding="ascii"))
 
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as socket_8001:
-                    socket_8001.bind((HOST, port8001))
+                msg_receiver_socket(HOST, port8001)
 
-                    socket_8001.listen()
 
-                    conn, addr = socket_8001.accept()  # is it okay to use 'conn' again?
-                    with conn:
-                        msg = b""
-                        while True:
-                            data = conn.recv(1024)
-                            if not data:
-                                break
-                            msg += data
+def msg_receiver_socket(host: str, port: int):
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind((host, port))
+            s.settimeout(2)
+            s.listen()
+            conn, addr = s.accept()
+            with conn:
+                msg = b""
+                while True:
+                    data = conn.recv(1024)
+                    if not data:
+                        break
+                    msg += data
 
-                        msg = msg.decode(encoding="ascii")
-                        client_id, client_key, client_msg = msg.split(maxsplit=2)
-                        with open("serverlog.log", "a") as file:
-                            head = f"{dt.datetime.now().strftime('%Y/%m/%d %H:%M:%S')} id: {client_id}\n"
-                            body = f"{client_msg}\n\n"
-                            if (
-                                client_id in db_clients
-                                and db_clients[client_id] == client_key
-                            ):
-                                file.write(head + body)
-                            else:
-                                file.write(head + "ACCESS DENIED!\n\n")
+                log_message(msg)
+    except socket.timeout:
+        print("Timeout error. No message received")
+
+
+def log_message(msg):
+    try:
+        msg = msg.decode(encoding="ascii")
+        client_id, client_key, client_msg = msg.split(maxsplit=2)
+        with open("serverlog.log", "a") as file:
+            head = f"{dt.datetime.now().strftime('%Y/%m/%d %H:%M:%S')} id: {client_id}\n"
+            body = f"{client_msg}\n\n"
+            if (
+                client_id in db_clients
+                and db_clients[client_id] == client_key
+            ):
+                file.write(head + body)
+            else:
+                file.write(head + "ACCESS DENIED!\n\n")
+    except ValueError:
+        print("Message corrupted. Skipping.")
 
 
 if __name__ == "__main__":
